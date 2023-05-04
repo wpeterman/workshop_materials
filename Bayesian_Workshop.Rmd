@@ -150,7 +150,7 @@ hypothesis(m2, "Intercept + speciesChinstrap < 4")
 
 Finally, we'll assess some posterior predictive checks to make sure our model is generating values consistent with the data we measured.
 
-```{r}
+```{r eval=FALSE}
 # All the posterior predictice checks available
 pp_check(m2, type = 'x')
 ```
@@ -220,24 +220,77 @@ hist(rnorm(1e5,4.75,1), main = 'Intercept Prior')
 hist(rexp(1e5,1), main = 'sigma Prior')
 ```
 
-Add the priors to your model.
+Before we fully add the priors to our model, it can be a good sanity check to make sure that the specified priors generate values that are sensible. We can evaluate this using *prior predictive checks*. These are the same as the posterior predictive checks we used above, but done from samples taken **only** from the specified prior distributions.
 
 ```{r}
-# Bayesian -- uninformed
+# Bayesian -- prior
+m3.prior <- brm(mass_kg ~ species + scale(flipper_length_mm),
+                family = gaussian(),
+                data = dat,
+                file = "models/m3_prior",
+                file_refit = 'on_change',
+                prior = p3,
+                sample_prior = 'only', ## For prior checks
+                iter = 2000,
+                warmup = 1000,
+                thin = 1,
+                chains = 4,
+                cores = 4)
+
+## Now look at checks
+## Hopefully see that the priors are approximating the data we observed
+pp_check(m3.prior, type = 'dens_overlay', ndraws = 100)
+pp_check(m3.prior, type = 'ecdf_overlay_grouped', group = 'species',ndraws = 100)
+pp_check(m3.prior, type = 'stat_grouped', group = 'species')
+```
+
+Seems that our priors are doing a good job. We can now update our posterior estimates to include the data in our model. Add the priors to your model.
+
+```{r}
+# Bayesian -- Informed
 m3 <- brm(mass_kg ~ species + scale(flipper_length_mm),
           family = gaussian(),
           data = dat,
           file = "models/m3",
           file_refit = 'on_change',
           prior = p3,
+          # sample_prior = 'only', ## For prior checks
+          iter = 2000,
+          warmup = 1000,
+          thin = 1,
+          chains = 4,
+          cores = 4)
+
+
+```
+
+***Compare the parameter estimates of the model with informed priors to the model with uninformed priors. Have priors altered the estimates?***
+
+#### Misinformed Priors
+
+What if our prior beliefs were incorrect? Let's see how strong, misinformed prior affects parameters estimates.
+
+```{r}
+# Mass decreases with flipper length
+# Chinstrap Penguins are larger than Adelie
+p4 <- c(prior(normal(-5,1), coef = scaleflipper_length_mm),
+        prior(normal(2,0.5), coef = speciesChinstrap),
+        prior(normal(1,1), coef = speciesGentoo),
+        prior(normal(4.75,1), class = Intercept), 
+        prior(exponential(1), class = sigma))
+
+m4 <- brm(mass_kg ~ species + scale(flipper_length_mm),
+          family = gaussian(),
+          data = dat,
+          file = "models/m4",
+          file_refit = 'on_change',
+          prior = p4,
           iter = 2000,
           warmup = 1000,
           thin = 1,
           chains = 4,
           cores = 4)
 ```
-
-***Compare the parameter estimates of the model with informed priors to the model with uninformed priors. Have priors altered the estimates?***
 
 ## Explore and Model!
 
